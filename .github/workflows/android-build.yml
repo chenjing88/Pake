@@ -1,0 +1,56 @@
+# This workflow builds Android APK for Pake
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Website URL or Local Path (if using local, ensure assets are uploaded)'
+        required: true
+        default: 'https://github.com/tw93/Pake'
+      name:
+        description: 'App Name'
+        required: true
+        default: 'PakeApp'
+      package:
+        description: 'Package Name (e.g., com.example.app)'
+        required: true
+        default: 'com.tw93.pakeapp'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+          add-to-path: false
+
+      - name: Install Dependencies
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Build Android App
+        env:
+          TAURI_ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          PAKE_URL: ${{ github.event.inputs.url }}
+          PAKE_NAME: ${{ github.event.inputs.name }}
+          PAKE_PACKAGE: ${{ github.event.inputs.package }}
+        run: |
+          pnpm run build --platform android --target aarch64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-APK
+          path: src-tauri/gen/android/app/build/outputs/apk/release/app-universal-release.apk
