@@ -41,18 +41,20 @@ jobs:
 
       - name: Configure Pake App
         run: |
-          # 写入应用配置（适配Pake的环境变量）
           echo "PAKE_URL=${{ github.event.inputs.url }}" > .env
           echo "PAKE_NAME=${{ github.event.inputs.name }}" >> .env
           echo "PAKE_PACKAGE=${{ github.event.inputs.package }}" >> .env
 
-      - name: Build Android APK (Pake v2 官方命令)
+      - name: Initialize Android Project (关键：生成安卓工程目录)
+        run: |
+          pnpm tauri android init
+
+      - name: Build Android APK
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_HOME }}
           ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         run: |
           pnpm tauri android build
-          # 列出生成的APK文件，方便后续上传
           ls -la src-tauri/gen/android/app/build/outputs/apk/release/
 
       - name: Upload APK
