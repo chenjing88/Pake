@@ -1,6 +1,4 @@
-# Pake 安卓打包：彻底绕开 setup-android Action，用系统自带环境
-name: Pake Android APP Build (终极版)
-
+name: Pake Android APP Build (最终修复版)
 on:
   workflow_dispatch:
     inputs:
@@ -19,53 +17,48 @@ on:
 
 jobs:
   build_android:
-    runs-on: ubuntu-latest  # 用 ubuntu-latest，自带完整 Android SDK/NDK
+    runs-on: ubuntu-latest
     steps:
-      - name: 检出Pake源码
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 配置Rust环境（安卓交叉编译）
+      - name: 配置Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi
           components: rust-src
 
-      - name: 安装Node/Pnpm
+      - name: 安装Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
-      - name: 安装Pake依赖
-        run: |
-          npm install -g pnpm
-          pnpm install
+      # 关键：先全局安装 pnpm，再执行后续命令
+      - name: 安装 pnpm
+        run: npm install -g pnpm
 
-      - name: 配置APP基础信息 + 绕过window.hide()报错
+      - name: 安装项目依赖
+        run: pnpm install
+
+      - name: 配置APP + 绕过window.hide()
         run: |
-          echo "TAURI_APP_TITLE=${{ github.event.inputs.app_name }}" > .env
-          echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
-          echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
-          echo "PAKE_SKIP_WINDOW_HIDE=true" >> .env
-          # 暴力注释报错代码（兜底）
+          echo "TAURI_APP_TITLE=${{ inputs.app_name }}" > .env
+          echo "TAURI_APP_VERSION=${{ inputs.app_version }}" >> .env
+          echo "TAURI_ANDROID_PACKAGE_NAME=${{ inputs.app_package }}" >> .env
           sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/g' src/lib.rs
           sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/g' src/lib.rs
 
       - name: 初始化安卓工程
         run: pnpm tauri android init
 
-      - name: 编译安卓APK（直接用系统自带NDK/SDK）
+      - name: 编译安卓APK
         run: pnpm tauri android build --release
         env:
-          # 直接用 GitHub Runner 预装好的环境变量
-          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/25.2.9519653
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-          PAKE_SKIP_WINDOW_HIDE: true
+          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/25.2.9519653
 
       - name: 上传APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APP-${{ github.run_id }}
-          path: |
-            src-tauri/gen/android/app/build/outputs/apk/release/*.apk
-            src-tauri/gen/android/app/build/outputs/bundle/release/*.aab
+          name: Android-APK
+          path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
