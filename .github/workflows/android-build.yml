@@ -1,4 +1,4 @@
-name: Pake Android APP Build (最终修复版)
+name: Pake Android APP Build (含网址配置版)
 on:
   workflow_dispatch:
     inputs:
@@ -14,15 +14,18 @@ on:
         description: '版本号'
         required: true
         default: '1.0.0'
+      app_url:
+        description: '要封装的网址（必填）'
+        required: true
+        default: 'https://你的APP网址'  # 这里替换成你的实际网址
 
 jobs:
-  build_android:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-22.04
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-
-      - name: 配置Rust
+      - uses: actions/checkout@v4
+      
+      - name: 配置Rust环境
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi
@@ -33,20 +36,25 @@ jobs:
         with:
           node-version: 20
 
-      # 关键：先全局安装 pnpm，再执行后续命令
-      - name: 安装 pnpm
+      - name: 全局安装pnpm
         run: npm install -g pnpm
 
-      - name: 安装项目依赖
+      - name: 安装Pake依赖
         run: pnpm install
 
-      - name: 配置APP + 绕过window.hide()
+      # 核心：配置Pake要封装的网址 + APP信息
+      - name: 写入APP配置（含网址）
         run: |
-          echo "TAURI_APP_TITLE=${{ inputs.app_name }}" > .env
-          echo "TAURI_APP_VERSION=${{ inputs.app_version }}" >> .env
-          echo "TAURI_ANDROID_PACKAGE_NAME=${{ inputs.app_package }}" >> .env
-          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/g' src/lib.rs
-          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/g' src/lib.rs
+          echo "PAKE_URL=${{ github.event.inputs.app_url }}" > .env
+          echo "PAKE_NAME=${{ github.event.inputs.app_name }}" >> .env
+          echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
+          echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
+
+      # 绕过window.hide()编译报错
+      - name: 注释报错代码
+        run: |
+          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/' src/lib.rs
+          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/' src/lib.rs
 
       - name: 初始化安卓工程
         run: pnpm tauri android init
@@ -54,11 +62,11 @@ jobs:
       - name: 编译安卓APK
         run: pnpm tauri android build --release
         env:
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-          ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/25.2.9519653
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
 
       - name: 上传APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APK
+          name: Pake-Android-APK
           path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
