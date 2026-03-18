@@ -1,21 +1,20 @@
-# This workflow builds Android APK for Pake
 name: Build Android APK
 
 on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL or Local Path (if using local, ensure assets are uploaded)'
+        description: 'Website URL'
         required: true
         default: 'https://github.com/tw93/Pake'
       name:
         description: 'App Name'
         required: true
-        default: 'PakeApp'
+        default: 'MonkAnimation'
       package:
-        description: 'Package Name (e.g., com.example.app)'
+        description: 'Package Name'
         required: true
-        default: 'com.tw93.pakeapp'
+        default: 'com.monk.animation'
 
 jobs:
   build:
@@ -47,7 +46,7 @@ jobs:
           PAKE_NAME: ${{ github.event.inputs.name }}
           PAKE_PACKAGE: ${{ github.event.inputs.package }}
         run: |
-          pnpm run build --platform android --target aarch64
+          pnpm run build -- --platform android --target aarch64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
