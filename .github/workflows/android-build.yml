@@ -1,18 +1,18 @@
-name: Build Android APK
+name: Build Android APK for Pake v2
 
 on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL'
+        description: 'Website URL (动效页面公网地址)'
         required: true
         default: 'https://github.com/tw93/Pake'
       name:
-        description: 'App Name'
+        description: 'App Name (应用名称)'
         required: true
         default: 'MonkAnimation'
       package:
-        description: 'Package Name'
+        description: 'Package Name (包名，如 com.xxx.animation)'
         required: true
         default: 'com.monk.animation'
 
@@ -26,30 +26,39 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android, armv7-linux-androideabi
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
+      - name: Setup Android NDK & SDK
+        uses: android-actions/setup-android@v3
         with:
           ndk-version: r25c
-          add-to-path: false
+          sdk-version: 33
 
       - name: Install Dependencies
         run: |
           npm install -g pnpm
           pnpm install
 
-      - name: Build Android App
-        env:
-          TAURI_ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          PAKE_URL: ${{ github.event.inputs.url }}
-          PAKE_NAME: ${{ github.event.inputs.name }}
-          PAKE_PACKAGE: ${{ github.event.inputs.package }}
+      - name: Configure Pake App
         run: |
-          pnpm run build -- --platform android --target aarch64
+          # 写入应用配置（适配Pake的环境变量）
+          echo "PAKE_URL=${{ github.event.inputs.url }}" > .env
+          echo "PAKE_NAME=${{ github.event.inputs.name }}" >> .env
+          echo "PAKE_PACKAGE=${{ github.event.inputs.package }}" >> .env
+
+      - name: Build Android APK (Pake v2 官方命令)
+        env:
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_HOME }}
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+        run: |
+          pnpm tauri android build
+          # 列出生成的APK文件，方便后续上传
+          ls -la src-tauri/gen/android/app/build/outputs/apk/release/
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Android-APK
-          path: src-tauri/gen/android/app/build/outputs/apk/release/app-universal-release.apk
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/release/*.aab
