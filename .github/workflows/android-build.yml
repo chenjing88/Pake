@@ -1,18 +1,19 @@
-# Pake 纯安卓APP打包（绕过window.hide()报错+无网页依赖）
-name: Pake Android APP Build (纯APP+无报错)
+# Pake 纯安卓APP打包（修复NDK/SDK配置 + 绕过window.hide报错）
+name: Pake Android APP Build (修复版)
+
 on:
   workflow_dispatch:
     inputs:
       app_name:
-        description: 'APP名称（中文/英文）'
+        description: 'APP名称'
         required: true
         default: 'PakeApp'
       app_package:
-        description: '安卓包名（小写+点，如com.xxx.pake）'
+        description: '包名'
         required: true
         default: 'com.xxx.pake'
       app_version:
-        description: 'APP版本号（如1.0.0）'
+        description: '版本号'
         required: true
         default: '1.0.0'
 
@@ -23,18 +24,24 @@ jobs:
       - name: 检出Pake源码
         uses: actions/checkout@v4
 
-      - name: 配置Rust环境（安卓交叉编译）
+      - name: 配置Rust环境
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi
           components: rust-src
 
-      - name: 配置Android NDK/SDK（Tauri v2兼容）
+      - name: 配置Android NDK/SDK (修复参数报错)
         uses: android-actions/setup-android@v3
         with:
-          ndk-version: r26b
-          sdk-version: 34
-          build-tools: 34.0.0
+          # 这里使用 packages 关键字指定版本
+          # 格式：模块;版本号
+          packages: |
+            cmdline-tools;latest
+            ndk;26.1.10904042
+            platforms;android-34
+            build-tools;34.0.0
+          # 必须添加这行以自动接受许可证
+          accept-android-sdk-licenses: true
 
       - name: 安装Node/Pnpm
         uses: actions/setup-node@v4
@@ -47,38 +54,33 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: 配置APP基础信息（无网页URL）
+      - name: 配置APP基础信息
         run: |
-          # 核心：仅配置APP本身信息，无网页依赖
           echo "TAURI_APP_TITLE=${{ github.event.inputs.app_name }}" > .env
           echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
           echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
-          # 关键：绕过window.hide()报错的环境变量
+          # 绕过window.hide()报错
           echo "PAKE_SKIP_WINDOW_HIDE=true" >> .env
 
-      - name: 初始化安卓工程（Pake原生APP）
-        run: |
-          pnpm tauri android init
+      - name: 初始化安卓工程
+        run: pnpm tauri android init
 
-      - name: 暴力注释报错代码（兜底方案，双重保障）
+      - name: 暴力注释报错代码 (sed命令确保生效)
         run: |
-          # 直接在CI中注释src/lib.rs里的window.hide()，无需手动改代码
-          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap(); # 绕过报错/g' src/lib.rs
-          # 兼容window.show()的情况
-          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap(); # 绕过报错/g' src/lib.rs
+          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/g' src/lib.rs
+          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/g' src/lib.rs
 
-      - name: 编译Pake原生安卓APP（Release版）
-        run: |
-          pnpm tauri android build --release
+      - name: 编译安卓APP
+        run: pnpm tauri android build --release
         env:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_HOME }}
           ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
           PAKE_SKIP_WINDOW_HIDE: true
 
-      - name: 上传纯APP安装包
+      - name: 上传APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pake-Android-APP-${{ github.event.inputs.app_name }}-${{ github.run_id }}
+          name: Android-APP-${{ github.run_id }}
           path: |
             src-tauri/gen/android/app/build/outputs/apk/release/*.apk
             src-tauri/gen/android/app/build/outputs/bundle/release/*.aab
