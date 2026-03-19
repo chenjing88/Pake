@@ -1,4 +1,4 @@
-name: Pake Android APP Build (含网址配置版)
+name: Pake Android APP Build (路径修正版)
 on:
   workflow_dispatch:
     inputs:
@@ -15,9 +15,9 @@ on:
         required: true
         default: '1.0.0'
       app_url:
-        description: '要封装的网址（必填）'
+        description: '要封装的网址'
         required: true
-        default: 'https://你的APP网址'  # 这里替换成你的实际网址
+        default: 'https://你的APP网址'
 
 jobs:
   build:
@@ -42,7 +42,6 @@ jobs:
       - name: 安装Pake依赖
         run: pnpm install
 
-      # 核心：配置Pake要封装的网址 + APP信息
       - name: 写入APP配置（含网址）
         run: |
           echo "PAKE_URL=${{ github.event.inputs.app_url }}" > .env
@@ -50,11 +49,11 @@ jobs:
           echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
           echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
 
-      # 绕过window.hide()编译报错
-      - name: 注释报错代码
+      # ✅ 修复：Pake 真实 lib.rs 路径是 src-tauri/src/
+      - name: 注释报错代码（修正路径）
         run: |
-          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/' src/lib.rs
-          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/' src/lib.rs
+          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/' src-tauri/src/lib.rs
+          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/' src-tauri/src/lib.rs
 
       - name: 初始化安卓工程
         run: pnpm tauri android init
