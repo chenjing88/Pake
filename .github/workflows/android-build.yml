@@ -1,4 +1,4 @@
-name: Pake Android APP Build (最终终版)
+name: Pake Android APP Build (彻底终版)
 on:
   workflow_dispatch:
     inputs:
@@ -49,16 +49,17 @@ jobs:
           echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
           echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
 
-      - name: 注释报错代码（修正路径）
+      # ✅ 彻底修复：模糊匹配所有 hide/show 代码，不管变量名/格式
+      - name: 彻底注释所有window相关报错代码
         run: |
-          sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/' src-tauri/src/lib.rs
-          sed -i 's/window.show().unwrap();/\/\/ window.show().unwrap();/' src-tauri/src/lib.rs
+          sed -i 's/\w*\.hide()\.unwrap();/\/\/ &/' src-tauri/src/lib.rs
+          sed -i 's/\w*\.show()\.unwrap();/\/\/ &/' src-tauri/src/lib.rs
 
       - name: 初始化安卓工程
         run: pnpm tauri android init
 
-      # ✅ 修复：用 -- 传递 --release 参数
-      - name: 编译安卓APK（修正命令格式）
+      # ✅ 修复命令格式：用 -- 传递 --release
+      - name: 编译安卓APK
         run: pnpm tauri android build -- --release
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
