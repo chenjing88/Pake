@@ -1,4 +1,4 @@
-name: Pake Android APP Build (路径修正版)
+name: Pake Android APP Build (最终终版)
 on:
   workflow_dispatch:
     inputs:
@@ -49,7 +49,6 @@ jobs:
           echo "TAURI_APP_VERSION=${{ github.event.inputs.app_version }}" >> .env
           echo "TAURI_ANDROID_PACKAGE_NAME=${{ github.event.inputs.app_package }}" >> .env
 
-      # ✅ 修复：Pake 真实 lib.rs 路径是 src-tauri/src/
       - name: 注释报错代码（修正路径）
         run: |
           sed -i 's/window.hide().unwrap();/\/\/ window.hide().unwrap();/' src-tauri/src/lib.rs
@@ -58,8 +57,9 @@ jobs:
       - name: 初始化安卓工程
         run: pnpm tauri android init
 
-      - name: 编译安卓APK
-        run: pnpm tauri android build --release
+      # ✅ 修复：用 -- 传递 --release 参数
+      - name: 编译安卓APK（修正命令格式）
+        run: pnpm tauri android build -- --release
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
